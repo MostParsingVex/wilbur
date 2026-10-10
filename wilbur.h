@@ -1,14 +1,13 @@
+#include<stdio.h>
 #include<stdint.h>
+#include"cbm.h"
 
-struct console_type {
-  uint8_t rows;
-  uint8_t columns;
-  uint8_t currentrow;
-  uint8_t currentcolumn;
-};
+void console_init( );
 
-typedef struct console_type console;
+void console_print( const char *str );
 
-void console_init( console *myconsole );
+void ram_init();
 
-void console_print( console *myconsole, const char *str );
+uint8_t read_ram( uint8_t bank, uint16_t addr );
+
+void write_ram( uint8_t bank, uint16_t addr, uint8_t val );
