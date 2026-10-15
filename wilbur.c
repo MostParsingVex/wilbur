@@ -27,13 +27,9 @@ int main(){
   cbm_k_close(2);
   cbm_k_clrch();
   if( ptr == buffer ) {
-    console_print("Bad command or file name");
-    for(;;);
+    PANIC("Bad command or file name");
   }  
 
 
-
-  console_print( "" );
-  console_print( "Kernel panic!" );
-  for(;;);
+  PANIC("");
 }
