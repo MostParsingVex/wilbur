@@ -12,4 +12,8 @@ uint8_t read_ram( uint8_t bank, uint16_t addr );
 
 void write_ram( uint8_t bank, uint16_t addr, uint8_t val );
 
+void syscall_init();
+
+void init();
+
 #define PANIC(x) console_print("Kernel panic!"); console_print(x); for(;;);

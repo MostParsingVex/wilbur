@@ -21,12 +21,13 @@ int write( int filedes, const char *buf, unsigned int nbyte ) {
     "stx $0b\n" // clobber __rs1 (msb)
     "brk\n" // write syscall
     ".byte 0x10\n"
+    "sei\n" // FIXME: remove when hw interrupts are working
     "lda $0a\n" // retrieve retval from __rs1 (lsb)
     "ldx $0b\n" // retrieve retval from __rs1 (msb)
     : "=a"(retval_lo), "=x"(retval_hi)
   );
   return retval_lo | retval_hi << 8;
 #else
-  return ((int(*)(int, const char *buf, unsigned int ))"\x85\x0a\x86\x0b\x00\x10\xa5\x0a\xa6\x0b\x60")( filedes, buf, nbyte );
+  return ((int(*)(int, const char *buf, unsigned int ))"\x85\x0a\x86\x0b\x00\x10\x78\xa5\x0a\xa6\x0b\x60")( filedes, buf, nbyte );
 #endif
 }

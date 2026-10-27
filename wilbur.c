@@ -8,7 +8,7 @@ int main(){
   console_init();
   console_print( "Wilbur kernel" );
 
-  ram_init();
+//ram_init();
 
   uint8_t buffer[ 1024 ];
 
@@ -30,6 +30,12 @@ int main(){
     PANIC("Bad command or file name");
   }  
 
+ram_init();
+  console_print("loaded");
 
-  PANIC("");
+  for( int i=0; i<0/*1024*/; i++ ) {
+    write_ram( 1, 0x1bff + i, buffer[ i ] );
+  }
+
+  PANIC("Copied");
 }
