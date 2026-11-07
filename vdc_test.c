@@ -4,7 +4,7 @@ int main(){
   console_init();
 
   console_print("VDC test");
-
+#if 1
   for(int i=99;;){
     char buffer[100];
     sprintf(buffer, "%d lines of bugs in the code. %d lines of bugs.", i, i);
@@ -12,4 +12,5 @@ int main(){
     sprintf(buffer, "Fix a bug, recompile the code. %d lines of bugs in the code.", ++i);
     console_print(buffer);
   }
+#endif
 }

@@ -1,17 +1,15 @@
 #include"wilbur.h"
 
-void sycall_handler(){
-  
-}
+#define BANK 2
 
 int main(){
   console_init();
-  console_print( "Wilbur kernel" );
+  console_print( "Syscall test" );
 
-  uint8_t buffer[ 1024 ];
+  uint8_t buffer[ 10240 ];
 
-  char filename[] = "hello_wilbur,P,R";
-  uint8_t filenamelen = 16;
+  char filename[] = "99bugs,P,R";//"hello_wilbur,P,R";
+  uint8_t filenamelen = 10;//16;
   uint8_t filenamelo = (uint16_t)filename;
   uint8_t filenamehi = (uint16_t)filename >> 8;
   asm("JSR $FFBD" :: "a"(filenamelen), "x"(filenamelo), "y"(filenamehi));
@@ -32,14 +30,14 @@ int main(){
 
   syscall_init();
 
-  for(int i=0;i<1024;i++){
-    write_ram( 1, 0x1bff + i, buffer[ i ] );
+  for(int i=0;i<10240;i++){
+    write_ram( BANK, 0x1bff + i, buffer[ i ] );
   }
 
   // patch out call to CHROUT
-  write_ram( 1, 0x1c25, 0xea );
-  write_ram( 1, 0x1c26, 0xea );
-  write_ram( 1, 0x1c27, 0xea );
+  write_ram( BANK, 0x1c25, 0xea );
+  write_ram( BANK, 0x1c26, 0xea );
+  write_ram( BANK, 0x1c27, 0xea );
 
   init();
 

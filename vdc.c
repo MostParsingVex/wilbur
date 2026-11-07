@@ -17,6 +17,19 @@ void write_reg_vdc( uint8_t addr, uint8_t val ) {
   *(volatile uint8_t*)0xd601 = val;
 }
 
+uint8_t read_ram_vdc( uint16_t addr ) {
+  write_reg_vdc( 18, addr / 256 );
+  write_reg_vdc( 19, addr % 256 );
+  return read_reg_vdc( 31 );
+}
+
+void write_ram_vdc( uint16_t addr, uint8_t val ) {
+  write_reg_vdc( 18, addr / 256 );
+  write_reg_vdc( 19, addr % 256 );
+  write_reg_vdc( 31, val );
+}
+
+#if 0
 void console_init( ) {
   write_reg_vdc( 18, 0x00 );
   write_reg_vdc( 19, 0x00 );
@@ -30,24 +43,37 @@ void console_init( ) {
   }
   write_reg_vdc( 18, 0x00 );
   write_reg_vdc( 19, 0x00 );
-#if 1
   char drivername[] = "MOS Technology 8563 VDC driver";
   for( int i = 0; i < strlen( drivername ); i++ ) {
     write_reg_vdc( 31, drivername[i] >= 'a' ? drivername[i] - 'a' + 1 : drivername[i] );
   }
   write_reg_vdc( 18, 0x00 );
   write_reg_vdc( 19, 0x50 );
-#else
-  for( int i = 0; i < 256; i++ ) {
-    write_reg_vdc( 31, i );
-  }
-#endif
 }
+#else
+void console_init( ) {
+  for( int i = 0; i < 2000; i++ ) {
+    write_ram_vdc( i, 0x20 );
+  }
+  for( int i = 0; i < 2000; i++ ) {
+    write_ram_vdc( i + 0x0800, 0x8e );
+  }
+  write_reg_vdc( 18, 0x00 );
+  write_reg_vdc( 19, 0x00 );
+  char drivername[] = "MOS Technology 8563 VDC driver";
+  for( int i = 0; i < strlen( drivername ); i++ ) {
+    write_reg_vdc( 31, drivername[i] >= 'a' ? drivername[i] - 'a' + 1 : drivername[i] );
+  }
+  write_reg_vdc( 18, 0x00 );
+  write_reg_vdc( 19, 0x50 );
+}
+#endif
 
 void console_print( const char *str ) {
   uint16_t addr = read_reg_vdc( 19 ) | read_reg_vdc( 18 ) << 8;
-  if( addr > 2000 ) {
+  if( addr >= 2000 ) {
     // blit
+#if 0
     // dest
     write_reg_vdc( 18, 0x00 );
     write_reg_vdc( 19, 0x00 );
@@ -65,11 +91,45 @@ void console_print( const char *str ) {
     write_reg_vdc( 24, temp );
     write_reg_vdc( 31, 0x20 );
     write_reg_vdc( 30, 80 );
+#else
+    for( int i = 0; i < 2000-80; i++ ) {
+      write_ram_vdc( i, read_ram_vdc( i + 80 ) );
+    }
+    for( int i = 0; i < 80; i++ ) {
+      write_ram_vdc( 2000-80 + i, 0x20 );
+    }
+    write_reg_vdc( 19, 0x80 );
+    write_reg_vdc( 18, 0x07 );
+    addr -= 80;
+#endif
   }
   for( int i = 0; i < strlen( str ); i++ ) {
     write_reg_vdc( 31, str[i] >= 'a' ? str[i] - 'a' + 1 : str[i] );
   }
   addr += 80;
+  write_reg_vdc( 18, addr / 256 );
+  write_reg_vdc( 19, addr % 256 );
+}
+
+void console_putchar( char c ) {
+  uint16_t addr = read_reg_vdc( 19 ) | read_reg_vdc( 18 ) << 8;
+  if( addr >= 2000 ) {
+    for( int i = 0; i < 2000 - 80; i++ ) {
+      write_ram_vdc( i, read_ram_vdc( i + 80 ) );
+    }
+    for( int i = 0; i < 80; i++ ) {
+      write_ram_vdc( 2000-80 + i, 0x20 );
+    }
+    write_reg_vdc( 19, 0x80 );
+    write_reg_vdc( 18, 0x07 );
+    addr -= 80;
+  }
+  if(c==10){
+    addr += 80 - addr%80;
+  } else {
+    write_reg_vdc( 31, c >= 'a' ? c - 'a' + 1 : c );
+    addr++;
+  }
   write_reg_vdc( 18, addr / 256 );
   write_reg_vdc( 19, addr % 256 );
 }

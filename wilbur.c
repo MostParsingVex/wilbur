@@ -1,9 +1,5 @@
 #include"wilbur.h"
 
-void sycall_handler(){
-  
-}
-
 int main(){
   console_init();
   console_print( "Wilbur kernel" );

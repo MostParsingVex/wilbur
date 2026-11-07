@@ -1,5 +1,7 @@
 #include"wilbur.h"
 
+#define BANK 2
+
 int main(){
   console_init();
   console_print( "MMU test" );
@@ -7,10 +9,10 @@ int main(){
   ram_init();
 
   for( int i=0; i<100; i++){
-    write_ram( 1, 0x8000 + i, i);
+    write_ram( BANK, 0x8000 + i, i);
   }
   for( int i=0; i<100; i++){
-    if( i != read_ram( 1, 0x8000 + i) ) {
+    if( i != read_ram( BANK, 0x8000 + i) ) {
       PANIC("Write/read above 0x01ff failed");
     }
   }
@@ -18,10 +20,10 @@ int main(){
   console_print("Write/read above 0x01ff passed");
 
   for( int i=0; i<100; i++){
-    write_ram( 1, 0x002 + i, i);
+    write_ram( BANK, 0x002 + i, i);
   }
   for( int i=0; i<100; i++){
-    if( i != read_ram( 1, 0x002 + i) ) {
+    if( i != read_ram( BANK, 0x002 + i) ) {
       PANIC("Zero page write/read failed");
     }
   }
@@ -29,10 +31,10 @@ int main(){
   console_print("Zero page write/read passed");
 
   for( int i=0; i<100; i++){
-    write_ram( 1, 0x100 + i, i);
+    write_ram( BANK, 0x100 + i, i);
   }
   for( int i=0; i<100; i++){
-    if( i != read_ram( 1, 0x100 + i) ) {
+    if( i != read_ram( BANK, 0x100 + i) ) {
       PANIC("HW stack write/read failed");
     }
   }
@@ -42,10 +44,10 @@ int main(){
   console_print("Zero page write/read passed");
 
   for( int i=0; i<1000; i++){
-    write_ram( 1, 0x002 + i, i);
+    write_ram( BANK, 0x002 + i, i);
   }
   for( int i=0; i<1000; i++){
-    if( (uint8_t)i != read_ram( 1, 0x002 + i) ) {
+    if( (uint8_t)i != read_ram( BANK, 0x002 + i) ) {
       PANIC("Zero page + HW stack + above 0x01ff write/read failed");
     }
   }

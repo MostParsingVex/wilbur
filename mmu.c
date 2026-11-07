@@ -2,7 +2,11 @@
 #include"mmu.h"
 
 void ram_init() {
-  console_print( "MOS Technology 8722 MMU driver" );
+  console_print( "MOS Technology 8722 MMU driver"
+#ifdef C256
+                 " (4 banks)"
+#endif
+                );
 
   // disable interrupts
   asm volatile(
@@ -74,12 +78,20 @@ void ram_init() {
 }
 
 uint8_t read_ram( uint8_t bank, uint16_t addr ) {
+#ifdef C256
+   bank = bank << 6 | 0x3f;
+   *(volatile uint8_t*)0xf016 = bank;
+#endif
   *(volatile uint16_t*)0xf01b = addr;
   asm volatile( "jsr $f001\n" ::: "a","x","y","c","v" );
   return *(volatile uint8_t*)0xf000;
 }
 
 void write_ram( uint8_t bank, uint16_t addr, uint8_t val ) {
+#ifdef C256
+   bank = bank << 6 | 0x3f;
+   *(volatile uint8_t*)0xf04f = bank;
+#endif
   *(volatile uint16_t*)0xf057 = addr;
   *(volatile uint8_t*)0xf000 = val;
   asm volatile( "jsr $f03a\n" ::: "a","x","y","c","v" );

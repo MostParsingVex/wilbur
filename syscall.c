@@ -1,33 +1,40 @@
 #include"syscall.h"
 #include"wilbur.h"
 
-void syscall_processing(){
-//console_print("caught syscall");
+#define BANK 2
 
-  uint8_t hw_stack_ptr = read_ram( 1, 0xf900 );
-  uint16_t program_counter = read_ram( 1, 0x100 | hw_stack_ptr + 1+1 ) | (uint16_t) read_ram( 1, 0x100 | hw_stack_ptr + 2+1 ) << 8;
-  uint8_t syscall_number = read_ram( 1, program_counter - 1 );
+void syscall_processing(){
+  uint8_t hw_stack_ptr = read_ram( BANK, 0xf900 );
+  uint16_t program_counter = read_ram( BANK, 0x100 | hw_stack_ptr + 2 ) | (uint16_t) read_ram( BANK, 0x100 | hw_stack_ptr + 3 ) << 8;
+  uint8_t syscall_number = read_ram( BANK, program_counter - 1 );
 #if 0
   char buffer[ 100 ] = "CAUGHT SYSCALL ";
   buffer[ 15 ] = "0123456789ABCDEF"[syscall_number >> 4];
   buffer[ 16 ] = "0123456789ABCDEF"[syscall_number & 0xf];
 #else
   char buffer[ 100 ];
-  sprintf( buffer, "Caught syscall %02x", syscall_number );
+  sprintf( buffer, "Caught syscall 0x%02x", syscall_number );
 #endif
   console_print( buffer );
 
   switch( syscall_number ) {
+    // exit
     case 0x02:
-      PANIC("called exit()" );
-      break;
+      {
+        uint16_t retval = read_ram( BANK, 0x000a ) | (uint16_t)read_ram( BANK, 0x000b ) << 8;
+        char buffer[ 100 ];
+        sprintf( buffer, "exit() argument 0x%02x", retval );
+        console_print( buffer );
+        PANIC("called exit()" );
+      }
+    // write
     case 0x10:
       {
-        uint16_t len  = read_ram( 1, 0x000e ) | (uint16_t)read_ram( 1, 0x000f ) << 8;
-        uint16_t addr = read_ram( 1, 0x000c ) | (uint16_t)read_ram( 1, 0x000d ) << 8;
+        uint16_t len  = read_ram( BANK, 0x000e ) | (uint16_t)read_ram( BANK, 0x000f ) << 8;
+        uint16_t addr = read_ram( BANK, 0x000c ) | (uint16_t)read_ram( BANK, 0x000d ) << 8;
         for( int i = 0; i < len; i++ ) {
-          int temp = read_ram( 1, addr + i );
-          console_print( (uint8_t*)&temp );
+          int temp = read_ram( BANK, addr + i );
+          console_putchar( temp );
         }
       }
       break;
@@ -35,7 +42,6 @@ void syscall_processing(){
       console_print( "Unknown syscall" );
       break;
   }
-//for(;;);
 }
 
 void syscall_init(){
@@ -83,9 +89,6 @@ end_of_syscall_trampoline_asm_blob:
   memcpy( (uint8_t*)0xf800, &&start_of_syscall_trampoline_asm_blob + 3, &&end_of_syscall_trampoline_asm_blob - &&start_of_syscall_trampoline_asm_blob - 3 );  
 
   // syscall dispatch
-//*(uint16_t*)0xf80e = (uint16_t)syscall_processing;
-//*(uint16_t*)0xf80d = (uint16_t)syscall_processing;
-//*(uint16_t*)0xf81f = (uint16_t)syscall_processing;
   *(uint16_t*)0xf825 = (uint16_t)syscall_processing;
 
   // interrupt vector
@@ -97,17 +100,21 @@ end_of_syscall_trampoline_asm_blob:
 
 void init(){
   // put the hardware stack at 0
-  write_ram( 1, 0xf900, 0 );
+  write_ram( BANK, 0xf900, 0 );
 
   // cpu flags
-  write_ram( 1, 0x0100+1, 0x24 );
+  write_ram( BANK, 0x0101, 0x20/*0x24*/ );
 
   // start address
-  write_ram( 1, 0x0101+1, 0x18 );
-  write_ram( 1, 0x0102+1, 0x1c );
+  write_ram( BANK, 0x0102, 0x18 );
+  write_ram( BANK, 0x0103, 0x1c );
+
+#ifdef C256
+  // jump to desired bank
+  *(volatile uint8_t*)0xf83c = BANK << 6 | 0x3f;
+#endif
 
   asm volatile(
-  //"jmp $f821\n"
     "jmp $f827\n"
     ::: "a","x","y","c","v"
   );
