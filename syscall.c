@@ -1,11 +1,16 @@
 #include"syscall.h"
 #include"wilbur.h"
 
-#define BANK 2
+#define BANK 1
 
 void syscall_processing(){
-  uint8_t hw_stack_ptr = read_ram( BANK, 0xf900 );
-  uint16_t program_counter = read_ram( BANK, 0x100 | hw_stack_ptr + 2 ) | (uint16_t) read_ram( BANK, 0x100 | hw_stack_ptr + 3 ) << 8;
+  // 0xf900 is common to all banks
+  // this assumption may not be true on other platforms
+  // e.g. 6509, 65816, 45gs02
+//uint8_t hw_stack_ptr = read_ram( 0/*BANK*/, 0xf900 );
+  uint8_t hw_stack_ptr = *(volatile uint8_t*)0xf900;
+  uint8_t bank = *(volatile uint8_t*)0xf901;
+  uint16_t program_counter = read_ram( BANK, 0x100 | hw_stack_ptr + 3 + 2 ) | (uint16_t) read_ram( BANK, 0x100 | hw_stack_ptr + 3 + 3 ) << 8;
   uint8_t syscall_number = read_ram( BANK, program_counter - 1 );
 #if 0
   char buffer[ 100 ] = "CAUGHT SYSCALL ";
@@ -48,8 +53,19 @@ void syscall_init(){
 start_of_syscall_trampoline_asm_blob:
   asm volatile(
     "jmp skip_syscall_trampoline\n"
-    "pla\n"
     "pha\n"
+    "txa\n"
+    "pha\n"
+    "tya\n"
+
+    "pha\n"
+
+    "tsx\n"
+    "inx\n"
+    "inx\n"
+    "inx\n"
+    "inx\n"
+    "lda $100,x\n"
     "and #$10\n"
     "beq leave_isr\n"
 
@@ -81,6 +97,11 @@ start_of_syscall_trampoline_asm_blob:
     "tax\n"
     "txs\n" // restore hardware stack pointer
     "leave_isr:\n"
+    "pla\n"
+    "tay\n"
+    "pla\n"
+    "tax\n"
+    "pla\n"
     "rti\n"
     "skip_syscall_trampoline:\n"
   ); // no constraints
@@ -89,7 +110,7 @@ end_of_syscall_trampoline_asm_blob:
   memcpy( (uint8_t*)0xf800, &&start_of_syscall_trampoline_asm_blob + 3, &&end_of_syscall_trampoline_asm_blob - &&start_of_syscall_trampoline_asm_blob - 3 );  
 
   // syscall dispatch
-  *(uint16_t*)0xf825 = (uint16_t)syscall_processing;
+  *(uint16_t*)0xf830 = (uint16_t)syscall_processing;
 
   // interrupt vector
   *(uint8_t*)0xfffe = 0x00;
@@ -103,19 +124,20 @@ void init(){
   write_ram( BANK, 0xf900, 0 );
 
   // cpu flags
-  write_ram( BANK, 0x0101, 0x20/*0x24*/ );
+  write_ram( BANK, 0x0101+3, /*0x20*/0x24 );
 
   // start address
-  write_ram( BANK, 0x0102, 0x18 );
-  write_ram( BANK, 0x0103, 0x1c );
+  write_ram( BANK, 0x0102+3, 0x18 );
+  write_ram( BANK, 0x0103+3, 0x1c );
 
 #ifdef C256
   // jump to desired bank
-  *(volatile uint8_t*)0xf83c = BANK << 6 | 0x3f;
+  *(volatile uint8_t*)0xf847 = BANK << 6 | 0x3f;
 #endif
 
   asm volatile(
-    "jmp $f827\n"
+  //"jmp $f827\n"
+    "jmp $f832\n"
     ::: "a","x","y","c","v"
   );
 }

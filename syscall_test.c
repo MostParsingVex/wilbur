@@ -1,6 +1,6 @@
 #include"wilbur.h"
 
-#define BANK 2
+#define BANK 1
 
 int main(){
   console_init();
