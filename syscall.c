@@ -49,6 +49,8 @@ void syscall_processing(){
   }
 }
 
+void null_scheduler(){}
+
 void syscall_init(){
 start_of_syscall_trampoline_asm_blob:
   asm volatile(
@@ -61,17 +63,19 @@ start_of_syscall_trampoline_asm_blob:
     "pha\n"
 
     "tsx\n"
+    "txa\n"
+    "sta $f900\n" // pointer to hardware stack to 0xf900
     "inx\n"
     "inx\n"
     "inx\n"
     "inx\n"
     "lda $100,x\n"
     "and #$10\n"
-    "beq leave_isr\n"
+    "beq handle_irq\n"
 
-    "tsx\n"
-    "txa\n"
-    "sta $f900\n" // stack hardware stack pointer to 0xf900
+  //"tsx\n"
+  //"txa\n"
+  //"sta $f900\n" // pointer to hardware stack to 0xf900
     "lda #$3e\n" // switch to kernel mode
     "sta $ff00\n"
     "lda #$f0\n" // zero page in bank 0
@@ -82,7 +86,15 @@ start_of_syscall_trampoline_asm_blob:
     "sta $d50a\n"
     "lda #$01\n"
     "sta $d509\n"
-    "jsr $ffff\n"
+    ".byte 0x20\n" // jsr
+  );
+syscall_processing_address_label:
+  asm volatile (
+    ".byte 0xff,0xff\n"
+  );
+after_syscall_processing:
+  asm volatile (
+"leave_isr:\n"
     "lda #$f1\n" // zero page in bank n
     "sta $d508\n"
     "lda #$00\n"
@@ -96,13 +108,40 @@ start_of_syscall_trampoline_asm_blob:
     "lda $f900\n"
     "tax\n"
     "txs\n" // restore hardware stack pointer
-    "leave_isr:\n"
+  //"leave_isr:\n"
     "pla\n"
     "tay\n"
     "pla\n"
     "tax\n"
     "pla\n"
     "rti\n"
+    "handle_irq:\n"
+
+    "tsx\n"
+    "txa\n"
+    "sta $f900\n" // pointer to hardware stack to 0xf900
+    "lda #$3e\n" // switch to kernel mode
+    "sta $ff00\n"
+    "lda #$f1\n" // zero page in bank 0
+    "sta $d508\n"
+    "lda #$00\n"
+    "sta $d507\n"
+    "lda #$f1\n" // hw stack in bank 0
+    "sta $d50a\n"
+    "lda #$01\n"
+    "sta $d509\n"
+  //"lda $d01a\n"
+  //"ora #$02\n"
+  //"sta $d01a\n"
+    "lda #$01\n"
+    "sta $d019\n"
+    "lda $dc0d\n" // clear CIA #1
+    "sta $dc0d\n"
+  //"lda $dd0d\n" // clear CIA #2
+  //"sta $dd0d\n"
+    "lda #$00\n"
+    "beq leave_isr\n"
+
     "skip_syscall_trampoline:\n"
   ); // no constraints
 end_of_syscall_trampoline_asm_blob:
@@ -110,11 +149,11 @@ end_of_syscall_trampoline_asm_blob:
   memcpy( (uint8_t*)0xf800, &&start_of_syscall_trampoline_asm_blob + 3, &&end_of_syscall_trampoline_asm_blob - &&start_of_syscall_trampoline_asm_blob - 3 );  
 
   // syscall dispatch
-  *(uint16_t*)0xf830 = (uint16_t)syscall_processing;
+  *(volatile uint16_t*)(0xf800 + &&syscall_processing_address_label - &&start_of_syscall_trampoline_asm_blob - 3) = (uint16_t)syscall_processing;
 
   // interrupt vector
-  *(uint8_t*)0xfffe = 0x00;
-  *(uint8_t*)0xffff = 0xf8;
+  *(volatile uint8_t*)0xfffe = 0x00;
+  *(volatile uint8_t*)0xffff = 0xf8;
 
   console_print("Installed syscall trampoline");
 }
@@ -124,20 +163,26 @@ void init(){
   write_ram( BANK, 0xf900, 0 );
 
   // cpu flags
-  write_ram( BANK, 0x0101+3, /*0x20*/0x24 );
+  write_ram( BANK, 0x0104, 0x20/*0x24*/ );
 
   // start address
-  write_ram( BANK, 0x0102+3, 0x18 );
-  write_ram( BANK, 0x0103+3, 0x1c );
+  write_ram( BANK, 0x0105, 0x18 );
+  write_ram( BANK, 0x0106, 0x1c );
 
 #ifdef C256
   // jump to desired bank
-  *(volatile uint8_t*)0xf847 = BANK << 6 | 0x3f;
+  *(volatile uint8_t*)0xf846 = BANK << 6 | 0x3f;
+
+  // set zero page
+  *(volatile uint8_t*)0xf832 = BANK | 0xf0;
+
+  // set hw stack
+  *(volatile uint8_t*)0xf83c = BANK | 0xf0;
 #endif
 
   asm volatile(
   //"jmp $f827\n"
-    "jmp $f832\n"
+    "jmp $f831\n"
     ::: "a","x","y","c","v"
   );
 }
